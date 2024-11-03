@@ -1,16 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import api from '../api';
-import { TextField, Button, List, ListItem, ListItemText, IconButton } from '@mui/material';
-import { Add, Edit, Delete } from '@mui/icons-material';
-import Products from './Products';
+import { TextField, Button, List, ListItem, Table, TableBody, TableCell, TableHead, TableRow } from '@mui/material';
+import { Add } from '@mui/icons-material';
 
 function ShoppingLists() {
     const [shoppingLists, setShoppingLists] = useState([]);
     const [newListName, setNewListName] = useState("");
-    const [selectedListId, setSelectedListId] = useState(null);
-    const [selectedListName, setSelectedListName] = useState("");
-    const [editingId, setEditingId] = useState(null);
-    const [editingName, setEditingName] = useState("");
+    const [newProducts, setNewProducts] = useState([{ name: "", quantity: 1, note: "" }]);
+    const [selectedList, setSelectedList] = useState(null);
 
     useEffect(() => {
         fetchShoppingLists();
@@ -22,95 +19,117 @@ function ShoppingLists() {
             .catch((error) => console.error(error));
     };
 
+    const handleProductChange = (index, field, value) => {
+        const updatedProducts = [...newProducts];
+        updatedProducts[index][field] = value;
+        setNewProducts(updatedProducts);
+    };
+
+    const addNewProductField = () => {
+        setNewProducts([...newProducts, { name: "", quantity: 1, note: "" }]);
+    };
+
     const addShoppingList = () => {
-        if (!newListName) return; // Avoid empty names
         api.post('shoppinglists/', { name: newListName })
+            .then((res) => {
+                const listId = res.data.id;
+                const productsWithListId = newProducts.map(product => ({ ...product, shopping_list: listId }));
+                return Promise.all(productsWithListId.map(product => api.post('products/', product)));
+            })
             .then(() => {
                 fetchShoppingLists();
                 setNewListName("");
+                setNewProducts([{ name: "", quantity: 1, note: "" }]);
             })
             .catch((error) => console.error(error));
     };
 
-    const deleteShoppingList = (id) => {
-        api.delete(`shoppinglists/${id}/`)
-            .then(fetchShoppingLists)
-            .catch((error) => console.error(error));
-    };
-
-    const startEditing = (id, name) => {
-        setEditingId(id);
-        setEditingName(name);
-    };
-
-    const updateShoppingList = () => {
-        api.put(`shoppinglists/${editingId}/`, { name: editingName })
-            .then(fetchShoppingLists)
-            .catch((error) => console.error(error));
-        setEditingId(null);
-        setEditingName("");
-    };
-
-    const handleListClick = (id, name) => {
-        setSelectedListId(id);
-        setSelectedListName(name);
+    const viewProducts = (list) => {
+        setSelectedList(list);
     };
 
     return (
         <div style={{ padding: 20 }}>
-            <h1>Shopping Lists</h1>
+            <h1>Create a Shopping List with Products</h1>
             <TextField
-                label="New List Name"
+                label="List Name"
                 value={newListName}
                 onChange={(e) => setNewListName(e.target.value)}
                 style={{ marginBottom: 20 }}
             />
+            
+            <h2>Products for this List</h2>
+            {newProducts.map((product, index) => (
+                <div key={index} style={{ marginBottom: 10 }}>
+                    <TextField
+                        label="Product Name"
+                        value={product.name}
+                        onChange={(e) => handleProductChange(index, "name", e.target.value)}
+                        style={{ marginRight: 10 }}
+                    />
+                    <TextField
+                        label="Quantity"
+                        type="number"
+                        value={product.quantity}
+                        onChange={(e) => handleProductChange(index, "quantity", e.target.value)}
+                        style={{ marginRight: 10 }}
+                    />
+                    <TextField
+                        label="Note"
+                        value={product.note}
+                        onChange={(e) => handleProductChange(index, "note", e.target.value)}
+                    />
+                </div>
+            ))}
+            <Button
+                onClick={addNewProductField}
+                style={{ marginBottom: 20 }}
+                variant="outlined"
+            >
+                Add Another Product
+            </Button>
+
             <Button
                 variant="contained"
                 color="primary"
                 startIcon={<Add />}
                 onClick={addShoppingList}
-                style={{ marginBottom: 20 }}
             >
-                Add List
+                Create Shopping List
             </Button>
 
+            <h2>Available Shopping Lists</h2>
             <List>
                 {shoppingLists.map((list) => (
-                    <ListItem key={list.id} style={{ transition: '0.3s ease' }}>
-                        {editingId === list.id ? (
-                            <>
-                                <TextField
-                                    value={editingName}
-                                    onChange={(e) => setEditingName(e.target.value)}
-                                    style={{ marginRight: 10 }}
-                                />
-                                <Button onClick={updateShoppingList}>Save</Button>
-                            </>
-                        ) : (
-                            <>
-                                <ListItemText
-                                    primary={list.name}
-                                    onClick={() => handleListClick(list.id, list.name)}
-                                    style={{ cursor: 'pointer' }}
-                                />
-                                <IconButton onClick={() => startEditing(list.id, list.name)}>
-                                    <Edit />
-                                </IconButton>
-                                <IconButton onClick={() => deleteShoppingList(list.id)} color="error">
-                                    <Delete />
-                                </IconButton>
-                            </>
-                        )}
+                    <ListItem key={list.id} button onClick={() => viewProducts(list)}>
+                        {list.name}
                     </ListItem>
                 ))}
             </List>
 
-            {/* Display products for the selected list */}
-            {selectedListId && (
-                <div style={{ marginTop: 30 }}>
-                    <h2>Products in {selectedListName}</h2>
-                    <Products shoppingListId={selectedListId} />
+            {selectedList && (
+                <div>
+                    <h2>Products in {selectedList.name}</h2>
+                    <Table>
+                        <TableHead>
+                            <TableRow>
+                                <TableCell>Product Name</TableCell>
+                                <TableCell>Quantity</TableCell>
+                                <TableCell>Note</TableCell>
+                                <TableCell>Status</TableCell>
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
+                            {selectedList.products.map((product) => (
+                                <TableRow key={product.id}>
+                                    <TableCell>{product.name}</TableCell>
+                                    <TableCell>{product.quantity}</TableCell>
+                                    <TableCell>{product.note}</TableCell>
+                                    <TableCell>{product.is_bought ? "Bought" : "Pending"}</TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
                 </div>
             )}
         </div>
