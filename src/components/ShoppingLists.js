@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import api from '../api';
-import { TextField, Button, List, ListItem, Table, TableBody, TableCell, TableHead, TableRow } from '@mui/material';
-import { Add } from '@mui/icons-material';
+import { TextField, Button, List, ListItem, Table, TableBody, TableCell, TableHead, TableRow, IconButton } from '@mui/material';
+import { Add, Edit, Delete, Save } from '@mui/icons-material';
 
 function ShoppingLists() {
     const [shoppingLists, setShoppingLists] = useState([]);
     const [newListName, setNewListName] = useState("");
     const [newProducts, setNewProducts] = useState([{ name: "", quantity: 1, note: "" }]);
     const [selectedList, setSelectedList] = useState(null);
+    const [editingId, setEditingId] = useState(null);
+    const [editingName, setEditingName] = useState("");
 
     useEffect(() => {
         fetchShoppingLists();
@@ -48,6 +50,32 @@ function ShoppingLists() {
         setSelectedList(list);
     };
 
+    const startEditingList = (list) => {
+        setEditingId(list.id);
+        setEditingName(list.name);
+    };
+
+    const saveEditedList = () => {
+        api.put(`shoppinglists/${editingId}/`, { name: editingName })
+            .then(() => {
+                fetchShoppingLists();
+                setEditingId(null);
+                setEditingName("");
+            })
+            .catch((error) => console.error(error));
+    };
+
+    const deleteShoppingList = (id) => {
+        api.delete(`shoppinglists/${id}/`)
+            .then(() => {
+                fetchShoppingLists();
+                if (selectedList && selectedList.id === id) {
+                    setSelectedList(null); // Deselect the list if it was deleted
+                }
+            })
+            .catch((error) => console.error(error));
+    };
+
     return (
         <div style={{ padding: 20 }}>
             <h1>Create a Shopping List with Products</h1>
@@ -57,7 +85,7 @@ function ShoppingLists() {
                 onChange={(e) => setNewListName(e.target.value)}
                 style={{ marginBottom: 20 }}
             />
-            
+
             <h2>Products for this List</h2>
             {newProducts.map((product, index) => (
                 <div key={index} style={{ marginBottom: 10 }}>
@@ -71,7 +99,7 @@ function ShoppingLists() {
                         label="Quantity"
                         type="number"
                         value={product.quantity}
-                        onChange={(e) => handleProductChange(index, "quantity", e.target.value)}
+                        onChange={(e) => handleProductChange(index, "quantity", Number(e.target.value))}
                         style={{ marginRight: 10 }}
                     />
                     <TextField
@@ -101,8 +129,31 @@ function ShoppingLists() {
             <h2>Available Shopping Lists</h2>
             <List>
                 {shoppingLists.map((list) => (
-                    <ListItem key={list.id} button onClick={() => viewProducts(list)}>
-                        {list.name}
+                    <ListItem key={list.id} style={{ display: 'flex', alignItems: 'center' }}>
+                        {editingId === list.id ? (
+                            <>
+                                <TextField
+                                    value={editingName}
+                                    onChange={(e) => setEditingName(e.target.value)}
+                                    style={{ marginRight: 10 }}
+                                />
+                                <IconButton onClick={saveEditedList} color="primary">
+                                    <Save />
+                                </IconButton>
+                            </>
+                        ) : (
+                            <>
+                                <span style={{ cursor: 'pointer' }} onClick={() => viewProducts(list)}>
+                                    {list.name}
+                                </span>
+                                <IconButton onClick={() => startEditingList(list)} color="primary">
+                                    <Edit />
+                                </IconButton>
+                            </>
+                        )}
+                        <IconButton onClick={() => deleteShoppingList(list.id)} color="error">
+                            <Delete />
+                        </IconButton>
                     </ListItem>
                 ))}
             </List>
