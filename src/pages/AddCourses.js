@@ -5,7 +5,7 @@ const AddCourses = () => {
   return (
     <section className="addcourses">
       <div>
-        <h1 className="title1">New Product</h1>
+        <h1 className="title1">New Products</h1>
         <form action="#">
           <div>
             <label class="desc" id="title1" for="Field1">
